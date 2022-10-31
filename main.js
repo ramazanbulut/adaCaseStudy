@@ -1,34 +1,45 @@
 
 var express = require('express');
 var app = express();
-const port=8888
+const port=process.env.PORT || 8080;
 app.use(express.json())
 app.use(express.urlencoded({extended: true}))
 app.listen(port);
 console.log("Server running on ",port)
-app.post('/update', function(req, res) {
-    //console.log(req.body); // the posted data
+app.post('/book', function(req, res) {
     console.log(req.body.Tren.Vagonlar)
     let count=req.body.RezervasyonYapilacakKisiSayisi
     let flexible=req.body.KisilerFarkliVagonlaraYerlestirilebilir
-    let isPlaced=false
     result={RezervasyonYapilabilir:false,YerlesimAyrinti:[]}
+
+
+    cars=  req.body.Tren.Vagonlar
+    let filtered_cars=cars.filter((vagon)=>vagon.Kapasite*0.7-vagon.DoluKoltukAdet>count)
+
+    if(!flexible && filtered_cars.length<1){ 
+        result.RezervasyonYapilabilir=false
+        result.YerlesimAyrinti=[]
+        res.send(result)
+        return
+    }
+    else if(filtered_cars.length>0){
+        result.RezervasyonYapilabilir=true
+        result.YerlesimAyrinti.push({vagonAdi:filtered_cars[0].Ad,KisiSayisi:count})
+        res.send(result)
+        return
+    }
+
     req.body.Tren.Vagonlar.map((vagon)=>{
         if(vagon.DoluKoltukAdet/vagon.Kapasite<0.7){
-            if(!flexible && vagon.Kapasite*0.7-vagon.DoluKoltukAdet>=count){
-                result.RezervasyonYapilabilir=true
-                result.YerlesimAyrinti.push({vagonAdi:vagon.Ad,KisiSayisi:count})
-                isPlaced=true
-                return
-            }
-            if(flexible&&vagon.Kapasite*0.7-vagon.DoluKoltukAdet>0){
-                result.YerlesimAyrinti.push({vagonAdi:vagon.Ad,KisiSayisi:count<vagon.Kapasite*0.7-vagon.DoluKoltukAdet?count:vagon.Kapasite*0.7-vagon.DoluKoltukAdet})
-                count-=count<vagon.Kapasite*0.7-vagon.DoluKoltukAdet?count:vagon.Kapasite*0.7-vagon.DoluKoltukAdet
+            if(flexible&&vagon.Kapasite*0.7-vagon.DoluKoltukAdet>0 && count>0 ){
+                result.YerlesimAyrinti.push({vagonAdi:vagon.Ad,KisiSayisi:count<vagon.Kapasite*0.7-vagon.DoluKoltukAdet?count:Math.round(vagon.Kapasite*0.7-vagon.DoluKoltukAdet)})
+                count-=count<vagon.Kapasite*0.7-vagon.DoluKoltukAdet?count:Math.round(vagon.Kapasite*0.7-vagon.DoluKoltukAdet)
                 console.log(count)
             }
         }
     })
-    if(isPlaced||count==0){
+    
+    if(count==0){
         result.RezervasyonYapilabilir=true
     }else{
         result.RezervasyonYapilabilir=false
@@ -38,3 +49,6 @@ app.post('/update', function(req, res) {
     
     res.send(result)
 });
+app.get("/",function(req,res){
+    res.send("Server Running \n you can access the endpoint via /book")
+})
